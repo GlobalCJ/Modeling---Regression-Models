@@ -1,0 +1,121 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+# Question 3
+Open the file EconomicsJournalSubscriptionData.csv, it contains data about subscriptions to economic journals at US libraries for the year 2000. Your job is to create a model with the number of subscribers (subs) as the dependent variable. Use the following variables:
+    • Price of the journal (price)
+    • Number of citations (citations)
+    • Characters per page (charpp
+    • Year of first publication (foundingyear)
+There might be non-linear relationships in the model, investigate if this is the case and if so, show this in a graph. Present a model without any transformation and one with the appropriate transformations. Which models fits better?
+
+
+```{r}
+library(class)
+library(magrittr)
+library(dplyr)
+library(caret)
+library(ggplot2)
+library(fastDummies)
+library(stargazer)
+library(reshape2)
+#library(texreg)
+#library(AER)
+library(stringr)
+```
+
+# Data understanding
+
+```{r}
+economy_data <- read.csv("/home/ds/Desktop/556000 Exam_FIML/556000EconomicsJournalSubscriptionData.csv")
+
+names(economy_data)
+unique(economy_data$Abbreviation)
+# Choosing the vars that will be used
+
+ecodata <- economy_data[,c(5,7,8,9,10)]
+summary(ecodata)
+
+```
+
+# Data Understanding and Prep
+
+
+```{r}
+unique(ecodata$foundingyear)
+summary(ecodata)
+nrow(ecodata)
+
+ecodata$age <- 2000 - ecodata$foundingyear
+head(ecodata)
+
+```
+- 150 rows
+- NO missing values. 
+- All are continuous var. 
+- Proportions are not close to each other (charpp vs sub). Year?
+
+
+```{r}
+ggplot(ecodata,aes(x=price, y=subs)) +geom_point() +geom_smooth(method=loess)
+ggplot(ecodata,aes(x=citations, y=subs)) +geom_point() +geom_smooth(method=loess)
+ggplot(ecodata,aes(x=charpp, y=subs)) +geom_point() +geom_smooth(method=loess)
+ggplot(ecodata,aes(x=age, y=subs)) +geom_point() +geom_smooth(method=loess)
+```
+There are multiple nonlinear relationships
+    - Subs and foundingyear have polynomial relationship
+    - Subs and price looks like poly as well.
+    - Citations and Subs have a poly rel. 
+
+Outliers might be influencing the relationships:
+
+
+# Reg
+
+```{r}
+
+modelx<- lm(subs~citations, data = ecodata)
+modely<- lm(subs~price, data = ecodata)
+modelz<- lm(subs~age, data = ecodata)
+modelq<- lm(subs~charpp, data = ecodata)
+modelzz <- lm(subs~price+citations+charpp+age, data = ecodata)
+
+
+
+# Price - Subs
+model1 <- lm(subs~price, data = ecodata)
+model2 <- lm(subs~log(price), data = ecodata) # Fits
+model3 <- lm(subs~poly(price,2), data = ecodata)
+# Citations - Subs
+model4 <- lm(subs~citations, data = ecodata)
+model5 <- lm(subs~log(citations), data = ecodata)
+model6 <- lm(subs~poly(citations,2), data = ecodata) # Fits
+model7 <- lm(log(subs)~citations, data = ecodata)
+# CHarpp - Subs
+model8 <- lm(subs~charpp, data = ecodata)
+model9 <- lm(subs~log(charpp), data = ecodata) ### NO Fit
+model10 <- lm(subs~poly(charpp,2), data = ecodata) 
+model11 <- lm(log(subs)~charpp, data = ecodata)
+# foundingyear - Subs
+model12 <- lm(subs~foundingyear, data = ecodata)
+model13 <- lm(subs~log(foundingyear), data = ecodata) 
+model14 <- lm(subs~poly(foundingyear,2), data = ecodata) # Fits 
+model15 <- lm(log(subs)~foundingyear, data = ecodata)
+
+
+
+modelx <- lm(subs~scale(log(price))+scale(poly(citations,2))+scale(charpp)+scale(poly(age,2)), data = ecodata)
+#summary(model1)
+
+stargazer(modelzz, modelx, header = FALSE, align = TRUE, title ="Table 1.EconomyJournalSubs", type = "html", single.row = TRUE, out = "/home/ds/Desktop/eco.html")
+```
+
+
+
+
+
+
+
+
+

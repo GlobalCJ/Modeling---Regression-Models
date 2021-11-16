@@ -1,0 +1,189 @@
+---
+title: "R Notebook"
+output:
+  html_notebook: default
+  pdf_document: default
+  word_document: default
+---
+# Question 6
+The file graduate_earnings.csv contains data about the earnings of alumni from different schools in the United States. Alumni were asked what their yearly earnings (Earn) were 5 years after graduating. Present a model predicting how much money alumni make after 5 year (Earn) using the following independent variables:
+    • Whether their university is public or private (Public)
+    • Their SAT (SAT)
+    • The tuition fee (Price)
+    • How much of their tuition fee was paid for through a scholarship (need_fraction)
+Some of the variables have missing observations, identify which these are and deal with them accordingly. Then present a model where you dealt with the missing values and compare this to the model that excluded the missing data. Is there a difference between the models? Which model would you prefer?
+
+```{r}
+library(class)
+library(magrittr)
+library(dplyr)
+library(caret)
+library(ggplot2)
+library(fastDummies)
+library(stargazer)
+library(reshape2)
+#library(texreg)
+#library(AER)
+library(stringr)
+```
+
+# Data understanding
+
+```{r}
+# !Original csv file did not work with utf-8. Deleted the unknown char from csv columns names manually. 
+
+g_eraning_data <- read.csv("/home/ds/Desktop/556000 Exam_FIML/556000graduate_earnings.csv", sep = ",")
+
+summary(g_eraning_data)
+# Choosing the vars that will be used
+
+gdata <- g_eraning_data[,c(4,2,5,6,7)]
+summary(gdata)
+
+```
+
+# Data Understanding and Prep
+
+```{r}
+unique(gdata$Public)
+summary(gdata)
+nrow(gdata)
+```
+Public is categorical, 1,0
+NA=Public, SAT, need_fraction
+Std is needed
+600 rows
+
+
+
+```{r}
+ggplot(gdata,aes(x=Public, y=Earn)) +geom_point() +geom_smooth(method=loess) # Public seems to have no relationship
+ggplot(gdata,aes(x=SAT, y=Earn)) +geom_point() +geom_smooth(method=loess) # Increasing increase
+ggplot(gdata,aes(x=Price, y=Earn)) +geom_point() +geom_smooth(method=loess) # poly might fit better
+ggplot(gdata,aes(x=need_fraction, y=Earn)) +geom_point() +geom_smooth(method=loess) # might be linear
+```
+
+
+# Initial Reg
+
+```{r}
+
+gmodel<-lm(Earn~Public, data = gdata)
+gmodel1<-lm(Earn~SAT, data = gdata)
+gmodel2<-lm(Earn~Price, data = gdata)
+gmodel3<-lm(Earn~need_fraction, data = gdata)
+
+#Controling
+
+gmodelc <- lm(Earn~Public+SAT+Price+need_fraction, data = gdata)
+stargazer(gmodelc, header = FALSE, align = TRUE, title ="Table 1. Graduate Earning", type = "html", single.row = TRUE, out = "/home/ds/Desktop/eco.html")
+
+stargazer(gmodel,gmodel1,gmodel2,gmodel3, header = FALSE, align = TRUE, title ="Table 1. Graduate Earning", type = "html", single.row = TRUE, out = "/home/ds/Desktop/eco.html")
+```
+#Tranformation
+
+```{r}
+#SAT
+gm<- lm(Earn~log(SAT), data = gtransdf)
+gm1<- lm(Earn~scale(poly(SAT,2)), data = gtransdf)
+gm2<- lm(log(Earn)~SAT, data = gtransdf)
+#Price
+gm<- lm(Earn~log(Price), data = gdata)
+gm1<- lm(Earn~scale(poly(Price,2)), data = gdata)
+gm2<- lm(log(Earn)~Price, data = gdata)
+#need_fractrions
+gm<- lm(Earn~log(need_fraction), data = gdata)
+gm1<- lm(Earn~scale(poly(need_fraction,2)), data = gtransdf)
+gm2<- lm(log(Earn)~need_fraction, data = gdata)
+
+#all
+
+stargazer(gm,gm1,gm2, header = FALSE, align = TRUE, title ="Table 1. Graduate Earning", type = "html", single.row = TRUE, out = "/home/ds/Desktop/eco.html")
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# Handling missing data
+There missing data by Public, SAT and need_fraction
+
+```{r}
+# Creating a new dataframe to transform. 
+gtransdf<- gdata
+gtransdf$Public_miss <-ifelse(is.na(gtransdf$Public), 1, 0)
+gtransdf$SAT_miss <-ifelse(is.na(gtransdf$SAT), 1, 0) 
+gtransdf$needf_miss <-ifelse(is.na(gtransdf$need_fraction), 1, 0) 
+head(gtransdf)
+
+missmodel1 <- lm(needf_miss~Earn, data = gtransdf)
+missmodel1a <- lm(needf_miss~Price, data = gtransdf)
+missmodel1b <- lm(needf_miss~need_fraction, data = gtransdf)
+missmodel1c <- lm(needf_miss~Public, data = gtransdf)
+missmodel1d <- lm(needf_miss~Price+Earn+need_fraction+Public, data = gtransdf)
+missmodel1e <- lm(needf_miss~Public_miss+SAT_miss, data = gtransdf)
+
+
+
+
+missmodel2 <- lm(SAT_miss~Earn+Price+SAT+Public+need_fraction, data = gtransdf)
+missmodel3 <- lm(needf_miss~Earn+Price+SAT+Public+need_fraction, data = gtransdf)
+mssmodel <- lm(Earn~Public_miss+SAT_miss+needf_miss, data = gtransdf)
+
+stargazer(missmodel1, header = FALSE, align = TRUE, title ="Table 1. Graduate Earning", type = "html", single.row = TRUE, out = "/home/ds/Desktop/eco.html")
+stargazer(missmodel1,missmodel1a,missmodel1b,missmodel1c, missmodel1d,missmodel1e, header = FALSE, align = TRUE, title ="Table 1. Graduate Earning", type = "html", single.row = TRUE, out = "/home/ds/Desktop/eco.html")
+
+
+#Missing values imputing
+
+gtransdf$SAT[is.na(gtransdf$SAT)]<-mean(gtransdf$SAT, na.rm = TRUE)
+gtransdf$need_fraction[is.na(gtransdf$need_fraction)]<-mean(gtransdf$need_fraction, na.rm = TRUE)
+gtransdf$Public[is.na(gtransdf$Public)]<-0
+summary(gtransdf)
+table(gdata$Public)
+
+```
+With NO misisng vlaue
+
+```{r}
+
+
+gmodelyesm <- lm(Earn~Public+scale(log(SAT))+scale(log(Price))+scale(log(need_fraction)), data = gdata)
+gmodelnom <- lm(Earn~Public+scale(poly(SAT,2))+scale(poly(Price,2))+scale(poly(need_fraction,2)), data = gtransdf)
+stargazer(gmodelnom,gmodelyesm, header = FALSE, align = TRUE, title ="Table 1. Graduate Earning", type = "html", single.row = TRUE, out = "/home/ds/Desktop/eco.html")
+
+
+
+stargazer(gmodel,gmodel1,gmodel2,gmodel3, header = FALSE, align = TRUE, title ="Table 1. Graduate Earning", type = "html", single.row = TRUE, out = "/home/ds/Desktop/eco.html")
+
+
+#SAT
+gm<- lm(Earn~log(SAT), data = gtransdf)
+gm1<- lm(Earn~scale(poly(SAT,2)), data = gtransdf)
+gm2<- lm(log(Earn)~SAT, data = gtransdf)
+#Price
+gm<- lm(Earn~log(Price), data = gtransdf)
+gm1<- lm(Earn~scale(poly(Price,2)), data = gtransdf)
+gm2<- lm(log(Earn)~Price, data = gtransdf)
+#need_fractrions
+gm<- lm(Earn~log(need_fraction), data = gtransdf)
+gm1<- lm(Earn~scale(poly(need_fraction,2)), data = gtransdf)
+gm2<- lm(log(Earn)~need_fraction, data = gtransdf)
+
+#all
+
+stargazer(gm,gm1,gm2, header = FALSE, align = TRUE, title ="Table 1. Graduate Earning", type = "html", single.row = TRUE, out = "/home/ds/Desktop/eco.html")
+```

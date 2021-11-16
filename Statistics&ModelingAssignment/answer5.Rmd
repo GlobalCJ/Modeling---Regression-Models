@@ -1,0 +1,69 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+# Question 5 (10%)
+The file Philadelphia_Crime_Rate contains data about the number of crimes per 1000 people (variable CrimeRate) for different cities in the state of Philadelphia. Create a model that predicts the number of crimes (CrimeRate) based on the following variables:
+    • Housing Price (HousePrice)
+    • Distance from the city center (MilesPhila)
+    • Change in population (PopChg)
+Are there any outliers in this data? If so, show how you found these and what the effects are on the results. Also describe how you dealt with the outliers in your final model.
+
+```{r}
+library(class)
+library(magrittr)
+library(dplyr)
+library(caret)
+library(ggplot2)
+library(fastDummies)
+library(stargazer)
+library(reshape2)
+#library(texreg)
+#library(AER)
+library(stringr)
+```
+
+```{r}
+crime_data <- read.csv("/home/ds/Desktop/556000 Exam_FIML/556000Philadelphia_Crime_Rate.csv")
+head(crime_data)
+
+crimed <- crime_data[,c(3,4,5,6)]
+nrow(crimed)
+
+summary(crimed)
+```
+#Finding Outliers
+```{r}
+ggplot(crimed,aes(x=CrimeRate, y=HousePrice)) +geom_point() +geom_smooth(method=loess)
+```
+
+```{r}
+# init model
+
+modelint <- lm(CrimeRate~HousePrice+MilesPhila+PopChg, data = crimed)
+
+stargazer(modelint, header = FALSE, align = TRUE, title ="Table 1. Graduate Earning", type = "html", single.row = TRUE, out = "/home/ds/Desktop/eco.html")
+```
+
+
+# Removing Outliers
+
+
+```{r}
+modelout <- lm(CrimeRate~HousePrice+MilesPhila+PopChg, data = crimed)
+
+CooksD <- cooks.distance(modelout)
+
+n <- nrow(crimed)
+
+c2data<-crimed
+Outliers <- as.numeric(names(CooksD)[(CooksD>(4/n))])
+head(f2data)
+c2data <- crimed[-c(Outliers),]
+modelafter <- lm(CrimeRate~HousePrice+MilesPhila+PopChg, data = c2data)
+summary(f2model)
+
+stargazer(modelafter,modelint, header = FALSE, align = TRUE, title ="Table 1. Graduate Earning", type = "html", single.row = TRUE, out = "/home/ds/Desktop/eco.html")
+nrow(fdata)
+```
+

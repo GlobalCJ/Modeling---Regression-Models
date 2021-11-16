@@ -1,0 +1,124 @@
+---
+title: "R Notebook"
+output:
+  html_notebook: default
+  pdf_document: default
+  word_document: default
+---
+
+# QUESTION 2
+
+The file amazon_books.csv contain data of 312 books crawled from amazon.com. Your job is to find out which variables are associated with the price that Amazon sets for the books (variable AmazonPrice). Check if there is multicollinearity and, if so, deal with it appropriately. Also standardize the appropriate variables and report which variable has the strongest influence on the price set by Amazon. Use the following variables:
+    • Price of the books (AmazonPrice)
+    • year of publication (PubYear)
+    • Hardback of Paperback (HardOrPaper)
+    • Number of pages (NumPages)
+    • Height (Height)
+    • Thickness (Thick)
+
+```{r}
+library(class)
+library(magrittr)
+library(dplyr)
+library(caret)
+library(ggplot2)
+library(fastDummies)
+library(stargazer)
+library(reshape2)
+#library(texreg)
+#library(AER)
+library(stringr)
+```
+
+# Data understanding
+
+```{r}
+# !Original csv file did not work with utf-8. Deleted the unknown char from csv columns names manually. 
+
+amazon_data <- read.csv("/home/ds/Desktop/556000 Exam_FIML/556000amazon_books.csv", sep = ",")
+
+summary(amazon_data)
+head(amazon_data)
+# Choosing the vars that will be used
+
+azdata <- amazon_data[,c(4,5,6,8, 10, 12)]
+summary(azdata)
+nrow(azdata)
+names(amazon_data)
+head(azdata)
+
+```
+
+
+
+
+
+# Prep
+
+```{r}
+azdata$age <- 2021 - azdata$PubYear # Age columns is created
+
+azdata <- dummy_cols(azdata, select_columns = "HardOrPaper") # dummy is created
+
+head(azdata)
+azdata <- rename(azdata, hardback = HardOrPaper_H, paperback=HardOrPaper_P ) # dummy is renamed
+
+
+```
+# Multicol
+
+```{r}
+cor(azdata[,c(3,5,6,7,8,9)])
+
+newdata <-azdata[,c(3,5,6,7,8,9)]
+head(newdata)
+cormat <- round(cor(newdata), 2)
+head(cormat)
+
+melted_cormat <- melt(cormat)
+
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + geom_tile() + theme(axis.text.x = element_text(angle = 90))+theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.border = element_blank(),
+  panel.background = element_blank(),
+  axis.ticks = element_blank(),
+  
+  legend.direction = "horizontal")+
+  guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                title.position = "top", title.hjust = 0.5))+ 
+geom_text(aes(Var2, Var1, label = value), color = "black", size = 4)+
+  scale_fill_gradient(low = "yellow", high = "red")
+```
+# Transformation
+
+```{r}
+modeln <- lm(AmazonPrice~NumPages+Height+age+hardback, data = azdata)
+modelt <- lm(AmazonPrice~scale(NumPages)+scale(Height)+scale(age)+hardback, data = azdata)
+
+summary(modeln)
+
+stargazer(modeln, modelt, header = FALSE, align = TRUE, title ="Table 1. Graduate Earning", type = "html", single.row = TRUE, out = "/home/ds/Desktop/eco.html")
+```
+# Finding better R
+
+```{r}
+modellog <- lm(AmazonPrice~log(NumPages)+log(Height)++log(age)+hardback, data = azdata)
+modelploy <- lm(AmazonPrice~scale(poly(NumPages,2))+scale(poly(Height,2))+scale(age)+hardback, data = azdata)
+modelexp <- lm(log(AmazonPrice)~NumPages+Height+age+hardback, data = azdata)
+
+summary(modeln)
+
+stargazer(modellog, modelploy,modelexp, header = FALSE, align = TRUE, title ="Table 1. Graduate Earning", type = "html", single.row = TRUE, out = "/home/ds/Desktop/eco.html")
+```
+
+# Final Model
+
+```{r}
+modelexp <- lm(log(AmazonPrice)~NumPages+Height+age+hardback, data = azdata)
+modelexpt1 <- lm(log(AmazonPrice)~scale(NumPages)+scale(Height)+scale(age)+scale(Thick), data = azdata)
+modelexpt <- lm(log(AmazonPrice)~scale(NumPages)+scale(Height)+scale(age)+hardback, data = azdata)
+stargazer(modelexpt,modelexpt1, modelexp, header = FALSE, align = TRUE, title ="Table 1. Graduate Earning", type = "html", single.row = TRUE, out = "/home/ds/Desktop/eco.html")
+
+```

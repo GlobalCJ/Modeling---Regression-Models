@@ -1,0 +1,218 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+# Question 1
+The file Student_Alcohol_Consumption.csv contains data about students at a Portuguese school. The board of the school is increasingly worried about so-called binge drinking and decided to do research on the drinking behavior of students and how these relate to personal and school related characteristics. The board is also interested in whether the relationship between these characteristics and alcohol consumption is different between boys and girls. Thus, develop and present three models. The first model should contain the results for all students, the second the results for boys, and the third for girls. For each model, explain clearly what each variable means. Also discuss if there are any differences between the boys and the girls when it comes to the relationship between the variables and amount of alcohol consumed. The variables you have to use are these:
+    • Alcohol: weekly alcohol consumption, 1 = Very low, 5 = Very high
+    • Sex: F = female, M = male
+    • Activities: whether the student partakes in extra-curricular activities
+    • Address: U = Urban, R = Rural
+    • Grade: grade scored as 1 = lowest and 20 = highest
+    • Absences: numbers of classes missed this year
+    • Romantic: is the student currently in a romantic relationship?
+
+
+```{r}
+library(class)
+library(magrittr)
+library(dplyr)
+library(caret)
+library(ggplot2)
+library(fastDummies)
+library(stargazer)
+library(reshape2)
+#library(texreg)
+#library(AER)
+library(stringr)
+```
+
+# Data understanding
+
+```{r}
+stdudent_data <- read.csv("556000Student_Alcohol_Consumption.csv")
+
+summary(stdudent_data)
+
+head(stdudent_data)
+
+#Df for modeling: selecting the vars that will be used in the model
+std_df <- stdudent_data[,c(1,2,4,5,8,9,10)] #selecting the columns that are going used. 
+summary(std_df)
+summd<-data.frame(unclass(summary(std_df)), check.names = FALSE, stringsAsFactors = FALSE)
+
+
+
+std_df <- dummy_cols(std_df, select_columns = c("sex", "address", "romantic", "activities")) 
+std_df <- rename(std_df, 
+                 female=sex_F,
+                 male=sex_M,
+                 rural=address_R,
+                 urban=address_U)
+
+
+
+stargazer(std_df, header = FALSE, align = TRUE, title ="Table 1. Summary Statistics Student-Alcohol Consumption", type = "html", single.row = TRUE, out = "/home/ds/Desktop/stddata.html", add.lines = list(c("Fixed effects?", "No", "No")))
+
+```
+Dummies are created from the categorical variables. 
+
+# Analysis of vars
+```{r}
+install.packages("scales")                                   # Install and load scales
+library(scales)
+# Sex Count
+ggplot(std_df, aes(sex, fill=sex))+geom_bar(aes(sex))+coord_flip()+ggtitle(label = "Figure 1", subtitle = "Gender distribution") +xlab("Sex")+ylab("Sex Count") + theme(
+plot.title = element_text(color="black", size=14, face="bold.italic", hjust = 0.5),
+plot.subtitle =  element_text(color="grey", size=12, face="bold.italic", hjust = 0.5),
+axis.title.x = element_text(color="black", size=14, face="bold"),
+axis.title.y = element_text(color="black", size=14, face="bold")
+)
+
+# Sex in relation to Alcohol
+ggplot(std_df,aes(x=male, y=Alcohol)) +geom_point() +geom_smooth(method=loess)+ggtitle(label = "Figure 2", subtitle = "Alcohol Consumption by Gender") +xlab("Gender (0 = female & 1=male)")+ylab("Alcohol Consumption") + theme(
+plot.title = element_text(color="black", size=14, face="bold.italic", hjust = 0.5),
+plot.subtitle =  element_text(color="#3e4ce6", size=12, face="bold.italic", hjust = 0.5),
+axis.title.x = element_text(color="black", size=14, face="bold"),
+axis.title.y = element_text(color="black", size=14, face="bold"))
+
+
+# Address Count
+ggplot(std_df, aes(address, fill=address))+geom_bar(aes(address))+coord_flip()+ggtitle(label = "Figure 3", subtitle = "Address distribution") +xlab("Address")+ylab("Address Count") + theme(
+plot.title = element_text(color="black", size=14, face="bold.italic", hjust = 0.5),
+plot.subtitle =  element_text(color="grey", size=12, face="bold.italic", hjust = 0.5),
+axis.title.x = element_text(color="black", size=14, face="bold"),
+axis.title.y = element_text(color="black", size=14, face="bold")
+)
+
+# Address in relation to Alcohol
+ggplot(std_df,aes(x=address, y=Alcohol, fill=address))+geom_bar(position = "dodge", stat = "identity") +ggtitle(label = "Figure 4", subtitle = "Alcohol Consumption by Address") +xlab("Address R= Rural & U=Urban")+ylab("Alcohol Consumption") + theme(
+plot.title = element_text(color="black", size=14, face="bold.italic", hjust = 0.5),
+plot.subtitle =  element_text(color="#3e4ce6", size=12, face="bold.italic", hjust = 0.5),
+axis.title.x = element_text(color="black", size=14, face="bold"),
+axis.title.y = element_text(color="black", size=14, face="bold"))
+
+
+# Relationship Count
+ggplot(std_df, aes(romantic, fill=romantic))+geom_bar(aes(romantic))+coord_flip()+ggtitle(label = "Figure 5", subtitle = "Relationship distribution") +xlab("In relationship")+ylab("Relationship Count") + theme(
+plot.title = element_text(color="black", size=14, face="bold.italic", hjust = 0.5),
+plot.subtitle =  element_text(color="#3e4ce6", size=12, face="bold.italic", hjust = 0.5),
+axis.title.x = element_text(color="black", size=14, face="bold"),
+axis.title.y = element_text(color="black", size=14, face="bold")
+)
+# Relationship by gender Count
+ggplot(std_df, aes(romantic, fill=romantic))+geom_bar(aes(sex))+coord_flip()+ggtitle(label = "Figure 6", subtitle = "Relationship distribution by Gender") +xlab("Gender")+ylab("Relationship Count") + theme(
+plot.title = element_text(color="black", size=14, face="bold.italic", hjust = 0.5),
+plot.subtitle =  element_text(color="#3e4ce6", size=12, face="bold.italic", hjust = 0.5),
+axis.title.x = element_text(color="black", size=14, face="bold"),
+axis.title.y = element_text(color="black", size=14, face="bold")
+)
+# Alcohol by Romantic
+ggplot(std_df,aes(x=romantic, y=Alcohol, fill=romantic))+geom_bar(position = "dodge", stat = "identity") +ggtitle(label = "Figure 7", subtitle = "Alcohol Consumption by Romantic Relationship") +xlab("In romantic relationship ?")+ylab("Alcohol Consumption") + theme(
+plot.title = element_text(color="black", size=14, face="bold.italic", hjust = 0.5),
+plot.subtitle =  element_text(color="#3e4ce6", size=12, face="bold.italic", hjust = 0.5),
+axis.title.x = element_text(color="black", size=14, face="bold"),
+axis.title.y = element_text(color="black", size=14, face="bold"))
+
+# Alchol and Grade
+ggplot(std_df,aes(x=grade, y=Alcohol)) +geom_point() +geom_smooth(method=loess)+ggtitle(label = "Figure 8", subtitle = "Alcohol Consumption by Grade") +xlab("Grade (1-20)")+ylab("Alcohol Consumption") + theme(
+plot.title = element_text(color="black", size=14, face="bold.italic", hjust = 0.5),
+plot.subtitle =  element_text(color="#3e4ce6", size=12, face="bold.italic", hjust = 0.5),
+axis.title.x = element_text(color="black", size=14, face="bold"),
+axis.title.y = element_text(color="black", size=14, face="bold"))
+
+# Activities by gender Count
+ggplot(std_df, aes(activities, fill=activities))+geom_bar(aes(sex))+coord_flip()+ggtitle(label = "Figure 8", subtitle = "Activities distribution by Gender") +xlab("Gender")+ylab("Activities Count") + theme(
+plot.title = element_text(color="black", size=14, face="bold.italic", hjust = 0.5),
+plot.subtitle =  element_text(color="#3e4ce6", size=12, face="bold.italic", hjust = 0.5),
+axis.title.x = element_text(color="black", size=14, face="bold"),
+axis.title.y = element_text(color="black", size=14, face="bold"))
+
+
+```
+# Cheking Multicollinearity
+
+```{r}
+cor(bnbdata[,c(7,8,11:24)])
+head(std_df)
+newdata <-std_df[,c(1,5,7:15)]
+head(newdata)
+cormat <- round(cor(newdata), 2)
+head(cormat)
+
+melted_cormat <- melt(cormat)
+
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + geom_tile() + theme(axis.text.x = element_text(angle = 90))+theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.grid.major = element_blank(),
+  panel.border = element_blank(),
+  panel.background = element_blank(),
+  axis.ticks = element_blank(),
+  
+  legend.direction = "horizontal")+
+  guides(fill = guide_colorbar(barwidth = 7, barheight = 1,
+                title.position = "top", title.hjust = 0.5))+ 
+geom_text(aes(Var2, Var1, label = value), color = "black", size = 4)+
+  scale_fill_gradient(low = "red", high = "blue")
+```
+
+
+
+
+
+```{r}
+std_model<-lm(Alcohol~sex+urban+absences+activities_yes+romantic_yes+grade, data = std_df)
+summary(std_model)
+```
+
+
+# Model 1 Alcohol consumption is calculatd by all genders included. 
+
+```{r}
+ggplot(std_df, aes(x=grade, y=Alcohol))+geom_point()+ geom_smooth(method = loess)
+
+head(std_df)
+
+# 3 models are created herebelow
+All_Gender <- lm(Alcohol~sex+scale(absences)+scale(grade)+activities_yes+romantic_yes+urban, data = std_df)
+Male <- lm(absence~male+scale(absences)+scale(grade)+activities_yes+romantic_yes+urban, data = std_df)
+Female <- lm(Alcohol~female+scale(absences)+scale(grade)+activities_yes+romantic_yes+urban, data = std_df)
+
+# Creating APA table with 3 modles
+
+stargazer(All_Gender,Male, Female, header = FALSE, column.labels = c("All Genders   ", "Male   ", "Female   "), align = TRUE, title ="Table 2. Regression Results", type = "html", single.row = TRUE, out = "/home/ds/Desktop/regresult.html", notes.label = "Significanse levels", dep.var.caption = "Alcohol Consumption behavior of students (between 15 and 21 years old)", dep.var.labels = "DV: Alcohol")
+
+summary(Female)
+
+indM<- lm(absences~male, data = std_df)
+indF<- lm(absences~female, data = std_df)
+indG<- lm(absences~sex, data = std_df)
+stargazer(indG, indM, indF, header = FALSE, column.labels = c("All Genders   ", "Male   ", "Female   "), align = TRUE, title ="Table 2. Regression Results", type = "html", single.row = TRUE, out = "/home/ds/Desktop/regresult2.html", notes.label = "Significanse levels", dep.var.caption = "Alcohol Consumption behavior of students (between 15 and 21 years old)", dep.var.labels = "DV: Alcohol")
+
+summary(ind)
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+```{r}
+
+```
+There 300 observations and 10 columns. 
+No missing values. 
